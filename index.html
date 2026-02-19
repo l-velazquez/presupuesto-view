@@ -1,0 +1,999 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Operational Plan – Report System</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+      body {
+        background: #f8f9fa;
+      }
+      #upload-screen {
+        min-height: 100vh;
+      }
+      .stat-card {
+        border-left: 4px solid;
+      }
+      .stat-card.a {
+        border-color: #0d6efd;
+      }
+      .stat-card.b {
+        border-color: #198754;
+      }
+      .stat-card.c {
+        border-color: #fd7e14;
+      }
+      .stat-card.d {
+        border-color: #6f42c1;
+      }
+      .badge-A {
+        background-color: #0d6efd;
+      }
+      .badge-B {
+        background-color: #198754;
+      }
+      .badge-C {
+        background-color: #fd7e14;
+      }
+      .badge-D {
+        background-color: #6f42c1;
+      }
+      .table-sm td,
+      .table-sm th {
+        font-size: 0.85rem;
+      }
+      .section-header {
+        background: linear-gradient(135deg, #1a3a5c, #2c6fad);
+        color: #fff;
+        padding: 1rem 1.5rem;
+        border-radius: 6px;
+        margin-bottom: 1rem;
+      }
+      @media print {
+        .no-print {
+          display: none !important;
+        }
+        #app-nav {
+          display: none !important;
+        }
+        .tab-pane:not(.active) {
+          display: none !important;
+        }
+        .card {
+          break-inside: avoid;
+        }
+        body {
+          background: #fff;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- ── UPLOAD SCREEN ──────────────────────────────────────────────── -->
+    <div
+      id="upload-screen"
+      class="d-flex align-items-center justify-content-center"
+    >
+      <div
+        class="card shadow p-5 text-center"
+        style="max-width: 480px; width: 100%"
+      >
+        <h3 class="mb-1">📋 Operational Plan Reports</h3>
+        <p class="text-muted mb-4">
+          Upload the CSV form export to generate reports.
+        </p>
+        <label class="btn btn-primary btn-lg" for="csv-input">
+          Choose CSV File
+          <input type="file" id="csv-input" accept=".csv" class="d-none" />
+        </label>
+        <p class="mt-3 text-muted small">
+          Data stays in your browser — nothing is uploaded to a server.
+        </p>
+      </div>
+    </div>
+
+    <!-- ── MAIN APP ───────────────────────────────────────────────────── -->
+    <div id="main-app" class="d-none">
+      <nav class="navbar navbar-dark bg-dark no-print" id="app-nav">
+        <div class="container-fluid">
+          <span class="navbar-brand fw-bold">Operational Plan Reports</span>
+          <div class="d-flex gap-2 align-items-center">
+            <span id="nav-filename" class="text-light small"></span>
+            <button
+              class="btn btn-sm btn-outline-light"
+              onclick="printReport()"
+            >
+              🖨 Print
+            </button>
+            <button class="btn btn-sm btn-outline-warning" onclick="resetApp()">
+              ↩ New File
+            </button>
+          </div>
+        </div>
+      </nav>
+
+      <div class="container-fluid py-3">
+        <!-- Tab Nav -->
+        <ul class="nav nav-tabs mb-3 no-print" id="mainTabs">
+          <li class="nav-item">
+            <button
+              class="nav-link active"
+              data-bs-toggle="tab"
+              data-bs-target="#tab-dashboard"
+            >
+              Dashboard
+            </button>
+          </li>
+          <li class="nav-item">
+            <button
+              class="nav-link"
+              data-bs-toggle="tab"
+              data-bs-target="#tab-org"
+            >
+              By Organization
+            </button>
+          </li>
+          <li class="nav-item">
+            <button
+              class="nav-link"
+              data-bs-toggle="tab"
+              data-bs-target="#tab-topic"
+            >
+              By Strategic Topic
+            </button>
+          </li>
+          <li class="nav-item">
+            <button
+              class="nav-link"
+              data-bs-toggle="tab"
+              data-bs-target="#tab-goal"
+            >
+              By Goal
+            </button>
+          </li>
+          <li class="nav-item">
+            <button
+              class="nav-link"
+              data-bs-toggle="tab"
+              data-bs-target="#tab-objective"
+            >
+              By Objective
+            </button>
+          </li>
+          <li class="nav-item">
+            <button
+              class="nav-link"
+              data-bs-toggle="tab"
+              data-bs-target="#tab-all"
+            >
+              All Initiatives
+            </button>
+          </li>
+        </ul>
+
+        <div class="tab-content">
+          <!-- ── DASHBOARD ─────────────────────────────────────── -->
+          <div class="tab-pane fade show active" id="tab-dashboard">
+            <div id="dash-content"></div>
+          </div>
+
+          <!-- ── BY ORGANIZATION ───────────────────────────────── -->
+          <div class="tab-pane fade" id="tab-org">
+            <div class="row mb-3 no-print">
+              <div class="col-md-4">
+                <label class="form-label fw-semibold"
+                  >Select Organization</label
+                >
+                <select
+                  class="form-select"
+                  id="org-select"
+                  onchange="renderOrgReport()"
+                >
+                  <option value="">All Organizations</option>
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-semibold">Funding Status</label>
+                <select
+                  class="form-select"
+                  id="org-status-filter"
+                  onchange="renderOrgReport()"
+                >
+                  <option value="">All</option>
+                  <option>Existing</option>
+                  <option>New</option>
+                  <option>Pending</option>
+                  <option>N/A</option>
+                </select>
+              </div>
+            </div>
+            <div id="org-report"></div>
+          </div>
+
+          <!-- ── BY STRATEGIC TOPIC ─────────────────────────────── -->
+          <div class="tab-pane fade" id="tab-topic">
+            <div class="mb-3 no-print">
+              <label class="form-label fw-semibold"
+                >Select Strategic Topic</label
+              >
+              <select
+                class="form-select w-auto"
+                id="topic-select"
+                onchange="renderTopicReport()"
+              >
+                <option value="">All Topics</option>
+                <option value="A">A. Academic Excellence and Innovation</option>
+                <option value="B">B. Research Transformation</option>
+                <option value="C">
+                  C. Fiscal Sustainability, Infrastructure & Admin Efficiency
+                </option>
+                <option value="D">
+                  D. Well-Being of the University Community and Social
+                  Commitment
+                </option>
+              </select>
+            </div>
+            <div id="topic-report"></div>
+          </div>
+
+          <!-- ── BY GOAL ────────────────────────────────────────── -->
+          <div class="tab-pane fade" id="tab-goal">
+            <div id="goal-report"></div>
+          </div>
+
+          <!-- ── BY OBJECTIVE ───────────────────────────────────── -->
+          <div class="tab-pane fade" id="tab-objective">
+            <div id="objective-report"></div>
+          </div>
+
+          <!-- ── ALL INITIATIVES ────────────────────────────────── -->
+          <div class="tab-pane fade" id="tab-all">
+            <div class="mb-3 no-print d-flex gap-2 flex-wrap">
+              <input
+                type="text"
+                id="search-all"
+                class="form-control w-auto"
+                placeholder="🔍 Search initiative or person…"
+                oninput="renderAllTable()"
+              />
+              <select
+                class="form-select w-auto"
+                id="filter-topic-all"
+                onchange="renderAllTable()"
+              >
+                <option value="">All Topics</option>
+                <option value="A">A – Academic Excellence</option>
+                <option value="B">B – Research</option>
+                <option value="C">C – Fiscal/Infrastructure</option>
+                <option value="D">D – Well-Being</option>
+              </select>
+              <select
+                class="form-select w-auto"
+                id="filter-status-all"
+                onchange="renderAllTable()"
+              >
+                <option value="">All Statuses</option>
+                <option>Existing</option>
+                <option>New</option>
+                <option>Pending</option>
+              </select>
+            </div>
+            <div id="all-table"></div>
+          </div>
+        </div>
+        <!-- /tab-content -->
+      </div>
+      <!-- /container -->
+    </div>
+    <!-- /main-app -->
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      // ─────────────────────────────────────────────────────────────────
+      // CONSTANTS
+      // ─────────────────────────────────────────────────────────────────
+      const COL = {
+        id: 0,
+        startTime: 1,
+        completionTime: 2,
+        email: 3,
+        name: 4,
+        mainOrg: 5,
+        // sub-unit columns
+        chancellorUnit: 6,
+        academicAffairsUnit: 7,
+        investigationUnit: 8,
+        studentsUnit: 9,
+        administrationUnit: 10,
+        medicineUnit: 11,
+        dentalUnit: 12,
+        nursingUnit: 13,
+        pharmacyUnit: 14,
+        healthProfUnit: 15,
+        pubHealthUnit: 16,
+        // person & project
+        staffName: 17,
+        institutionalEmail: 18,
+        projectName: 19,
+        description: 20,
+        strategicTopic: 21,
+        // goals
+        goalA: 22,
+        goalB: 23,
+        goalC: 24,
+        goalD: 25,
+        // objectives
+        obj1A: 26,
+        obj2A: 27,
+        obj3A: 28,
+        obj1B: 29,
+        obj1C: 30,
+        obj2C: 31,
+        obj3C: 32,
+        obj1D: 33,
+        obj2D: 34,
+        obj3D: 35,
+        // admin
+        personResponsible: 36,
+        hasIncome: 37,
+        incomeSources: 38,
+        cost: 39,
+        fundingStatus: 40,
+      };
+
+      // Map main org name → sub-unit column index
+      const ORG_UNIT_COL = {
+        Chancellor: COL.chancellorUnit,
+        "Dean of Academic Affairs": COL.academicAffairsUnit,
+        "Deanship of Investigation": COL.investigationUnit,
+        "Dean of Students": COL.studentsUnit,
+        "Deanship of Administration": COL.administrationUnit,
+        "School of Medicine": COL.medicineUnit,
+        "School of Dental Medicine": COL.dentalUnit,
+        "School of Nursing": COL.nursingUnit,
+        "School of Pharmacy": COL.pharmacyUnit,
+        "School of Health Professions": COL.healthProfUnit,
+        "Graduate School of Public Health": COL.pubHealthUnit,
+      };
+
+      const TOPIC_LABELS = {
+        A: "A. Academic Excellence and Innovation",
+        B: "B. Research Transformation",
+        C: "C. Fiscal Sustainability, Infrastructure & Admin Efficiency",
+        D: "D. Well-Being of the University Community and Social Commitment",
+      };
+
+      const TOPIC_COLORS = {
+        A: "#0d6efd",
+        B: "#198754",
+        C: "#fd7e14",
+        D: "#6f42c1",
+      };
+
+      let DATA = []; // parsed rows as objects
+      let chartInstances = {};
+
+      // ─────────────────────────────────────────────────────────────────
+      // CSV PARSING
+      // ─────────────────────────────────────────────────────────────────
+      document
+        .getElementById("csv-input")
+        .addEventListener("change", function (e) {
+          const file = e.target.files[0];
+          if (!file) return;
+          Papa.parse(file, {
+            skipEmptyLines: true,
+            complete: function (results) {
+              const rows = results.data;
+              // first row is header
+              DATA = rows.slice(1).map((r) => parseRow(r));
+              document.getElementById("nav-filename").textContent = file.name;
+              initApp();
+            },
+          });
+        });
+
+      function parseRow(r) {
+        const mainOrg = (r[COL.mainOrg] || "").trim();
+        const subUnitCol = ORG_UNIT_COL[mainOrg];
+        const subUnit =
+          subUnitCol !== undefined ? (r[subUnitCol] || "").trim() : "";
+
+        const topicRaw = (r[COL.strategicTopic] || "").trim();
+        const topicKey = topicRaw.charAt(0).toUpperCase();
+
+        // Collect filled goal (only one will be set per row)
+        const goals = [r[COL.goalA], r[COL.goalB], r[COL.goalC], r[COL.goalD]]
+          .map((g) => (g || "").trim())
+          .filter(Boolean);
+        const goal = goals[0] || "";
+
+        // Collect filled objectives
+        const objCols = [
+          COL.obj1A,
+          COL.obj2A,
+          COL.obj3A,
+          COL.obj1B,
+          COL.obj1C,
+          COL.obj2C,
+          COL.obj3C,
+          COL.obj1D,
+          COL.obj2D,
+          COL.obj3D,
+        ];
+        const objectives = objCols
+          .map((i) => (r[i] || "").trim())
+          .filter(Boolean);
+
+        const costRaw = (r[COL.cost] || "").trim();
+        const cost = parseCost(costRaw);
+
+        return {
+          id: r[COL.id] || "",
+          submitterName: (r[COL.name] || "").trim(),
+          mainOrg,
+          subUnit,
+          staffName: (r[COL.staffName] || "").trim(),
+          projectName: (r[COL.projectName] || "").trim(),
+          description: (r[COL.description] || "").trim(),
+          topicKey,
+          topicLabel: TOPIC_LABELS[topicKey] || topicRaw,
+          goal,
+          objectives,
+          personResponsible: (r[COL.personResponsible] || "").trim(),
+          hasIncome: (r[COL.hasIncome] || "").trim(),
+          incomeSources: (r[COL.incomeSources] || "").trim(),
+          cost,
+          fundingStatus: (r[COL.fundingStatus] || "").trim(),
+          raw: r,
+        };
+      }
+
+      function parseCost(val) {
+        if (!val || val === "N/A") return 0;
+        const n = parseFloat(val.replace(/[^0-9.]/g, ""));
+        return isNaN(n) ? 0 : n;
+      }
+
+      function fmt$(val) {
+        return new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: "USD",
+        }).format(val);
+      }
+
+      // ─────────────────────────────────────────────────────────────────
+      // INIT
+      // ─────────────────────────────────────────────────────────────────
+      function initApp() {
+        document.getElementById("upload-screen").classList.add("d-none");
+        document.getElementById("main-app").classList.remove("d-none");
+
+        populateOrgSelect();
+        renderDashboard();
+        renderOrgReport();
+        renderTopicReport();
+        renderGoalReport();
+        renderObjectiveReport();
+        renderAllTable();
+      }
+
+      function resetApp() {
+        DATA = [];
+        document.getElementById("upload-screen").classList.remove("d-none");
+        document.getElementById("main-app").classList.add("d-none");
+        document.getElementById("csv-input").value = "";
+        // destroy charts
+        Object.values(chartInstances).forEach((c) => c.destroy());
+        chartInstances = {};
+      }
+
+      function populateOrgSelect() {
+        const orgs = [...new Set(DATA.map((d) => d.mainOrg))]
+          .filter(Boolean)
+          .sort();
+        const sel = document.getElementById("org-select");
+        sel.innerHTML = `<option value="">All Organizations</option>`;
+        orgs.forEach((o) => {
+          sel.innerHTML += `<option value="${o}">${o}</option>`;
+        });
+      }
+
+      // ─────────────────────────────────────────────────────────────────
+      // HELPERS
+      // ─────────────────────────────────────────────────────────────────
+      function groupBy(arr, key) {
+        return arr.reduce((acc, item) => {
+          const k = item[key] || "Unknown";
+          (acc[k] = acc[k] || []).push(item);
+          return acc;
+        }, {});
+      }
+
+      function totalCost(arr) {
+        return arr.reduce((s, d) => s + d.cost, 0);
+      }
+
+      function topicBadge(key) {
+        const colors = {
+          A: "primary",
+          B: "success",
+          C: "warning text-dark",
+          D: "purple",
+        };
+        const cls =
+          key === "D"
+            ? "badge bg-purple text-white"
+            : `badge bg-${colors[key] || "secondary"}`;
+        const style = key === "D" ? 'style="background:#6f42c1"' : "";
+        return `<span class="badge" ${style}
+    style="background:${TOPIC_COLORS[key] || "#6c757d"}">${key}</span>`;
+      }
+
+      function statusBadge(status) {
+        const map = {
+          Existing: "success",
+          New: "primary",
+          Pending: "warning text-dark",
+        };
+        const cls = map[status] || "secondary";
+        return `<span class="badge bg-${cls}">${status || "—"}</span>`;
+      }
+
+      function initiativeTable(rows, showOrg = false) {
+        if (!rows.length)
+          return `<p class="text-muted">No initiatives found.</p>`;
+        const orgCol = showOrg ? `<th>Organization</th><th>Unit</th>` : "";
+        const orgData = (row) =>
+          showOrg
+            ? `<td>${row.mainOrg}</td><td>${row.subUnit || "—"}</td>`
+            : "";
+
+        return `
+  <div class="table-responsive">
+  <table class="table table-sm table-hover table-bordered align-middle">
+    <thead class="table-dark">
+      <tr>
+        <th>#</th>
+        ${orgCol}
+        <th>Project / Initiative</th>
+        <th>Topic</th>
+        <th>Goal</th>
+        <th>Person Responsible</th>
+        <th>Funding Status</th>
+        <th class="text-end">Est. Cost (AY 2025-26)</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rows
+        .map(
+          (r) => `
+      <tr>
+        <td>${r.id}</td>
+        ${orgData(r)}
+        <td>
+          <strong>${escHtml(r.projectName)}</strong><br>
+          <small class="text-muted">${escHtml(r.description.substring(0, 80))}…</small>
+        </td>
+        <td>${topicBadge(r.topicKey)}</td>
+        <td><small>${escHtml(r.goal.substring(0, 60))}${r.goal.length > 60 ? "…" : ""}</small></td>
+        <td><small>${escHtml(r.personResponsible)}</small></td>
+        <td>${statusBadge(r.fundingStatus)}</td>
+        <td class="text-end fw-semibold">${r.cost > 0 ? fmt$(r.cost) : "N/A"}</td>
+      </tr>`,
+        )
+        .join("")}
+    </tbody>
+    <tfoot class="table-secondary fw-bold">
+      <tr>
+        <td colspan="${showOrg ? 7 : 5}">Total</td>
+        <td class="text-end">${fmt$(totalCost(rows))}</td>
+      </tr>
+    </tfoot>
+  </table>
+  </div>`;
+      }
+
+      function costByTopicBreakdown(rows) {
+        const topics = ["A", "B", "C", "D"];
+        const byTopic = groupBy(rows, "topicKey");
+        const items = topics
+          .filter((t) => byTopic[t])
+          .map((t) => {
+            const n = byTopic[t].length;
+            const cost = totalCost(byTopic[t]);
+            return `<div class="col-md-3 col-6 mb-2">
+        <div class="card stat-card ${t} p-3 h-100">
+          <div class="fw-bold">${topicBadge(t)} Topic ${t}</div>
+          <div class="fs-5 mt-1">${fmt$(cost)}</div>
+          <div class="text-muted small">${n} initiative${n !== 1 ? "s" : ""}</div>
+        </div>
+      </div>`;
+          });
+        return `<div class="row">${items.join("")}</div>`;
+      }
+
+      function escHtml(str) {
+        return (str || "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+      }
+
+      // ─────────────────────────────────────────────────────────────────
+      // DASHBOARD
+      // ─────────────────────────────────────────────────────────────────
+      function renderDashboard() {
+        const total = DATA.length;
+        const totalBudget = totalCost(DATA);
+        const byOrg = groupBy(DATA, "mainOrg");
+        const byTopic = groupBy(DATA, "topicKey");
+        const byStatus = groupBy(DATA, "fundingStatus");
+
+        const statCards = [
+          {
+            label: "Total Initiatives",
+            value: total,
+            icon: "📋",
+            color: "primary",
+          },
+          {
+            label: "Total Budget",
+            value: fmt$(totalBudget),
+            icon: "💰",
+            color: "success",
+          },
+          {
+            label: "Organizations",
+            value: Object.keys(byOrg).length,
+            icon: "🏛️",
+            color: "warning",
+          },
+          {
+            label: "Pending Funding",
+            value: (byStatus["Pending"] || []).length,
+            icon: "⏳",
+            color: "danger",
+          },
+        ]
+          .map(
+            (s) => `
+    <div class="col-md-3 col-6 mb-3">
+      <div class="card shadow-sm p-3 border-${s.color}">
+        <div class="text-muted small">${s.icon} ${s.label}</div>
+        <div class="fs-4 fw-bold text-${s.color}">${s.value}</div>
+      </div>
+    </div>`,
+          )
+          .join("");
+
+        // Org cost table
+        const orgRows = Object.entries(byOrg)
+          .map(([org, rows]) => ({
+            org,
+            count: rows.length,
+            cost: totalCost(rows),
+          }))
+          .sort((a, b) => b.cost - a.cost);
+
+        const orgTable = `
+  <div class="table-responsive">
+  <table class="table table-sm table-hover">
+    <thead class="table-dark">
+      <tr><th>Organization</th><th>Initiatives</th><th class="text-end">Total Cost</th></tr>
+    </thead>
+    <tbody>
+      ${orgRows
+        .map(
+          (r) => `
+      <tr>
+        <td>${r.org}</td>
+        <td>${r.count}</td>
+        <td class="text-end">${fmt$(r.cost)}</td>
+      </tr>`,
+        )
+        .join("")}
+    </tbody>
+    <tfoot class="fw-bold table-secondary">
+      <tr>
+        <td>Total</td>
+        <td>${total}</td>
+        <td class="text-end">${fmt$(totalBudget)}</td>
+      </tr>
+    </tfoot>
+  </table>
+  </div>`;
+
+        document.getElementById("dash-content").innerHTML = `
+    <div class="row">${statCards}</div>
+    <div class="row">
+      <div class="col-lg-5 mb-3">
+        <div class="card shadow-sm p-3">
+          <h6 class="fw-bold mb-3">Budget by Organization</h6>
+          ${orgTable}
+        </div>
+      </div>
+      <div class="col-lg-4 mb-3">
+        <div class="card shadow-sm p-3">
+          <h6 class="fw-bold mb-3">Budget by Strategic Topic</h6>
+          <canvas id="chart-topic"></canvas>
+        </div>
+      </div>
+      <div class="col-lg-3 mb-3">
+        <div class="card shadow-sm p-3">
+          <h6 class="fw-bold mb-3">Funding Status</h6>
+          <canvas id="chart-status"></canvas>
+        </div>
+      </div>
+    </div>`;
+
+        // Charts
+        const topics = ["A", "B", "C", "D"];
+        const topicLabels = topics.map((t) => "Topic " + t);
+        const topicData = topics.map((t) => totalCost(byTopic[t] || []));
+
+        if (chartInstances["topic"]) chartInstances["topic"].destroy();
+        chartInstances["topic"] = new Chart(
+          document.getElementById("chart-topic"),
+          {
+            type: "bar",
+            data: {
+              labels: topicLabels,
+              datasets: [
+                {
+                  data: topicData,
+                  backgroundColor: topics.map((t) => TOPIC_COLORS[t]),
+                },
+              ],
+            },
+            options: {
+              plugins: { legend: { display: false } },
+              scales: {
+                y: {
+                  ticks: {
+                    callback: (v) =>
+                      "$" + (v >= 1000 ? (v / 1000).toFixed(0) + "k" : v),
+                  },
+                },
+              },
+            },
+          },
+        );
+
+        const statusKeys = Object.keys(byStatus);
+        if (chartInstances["status"]) chartInstances["status"].destroy();
+        chartInstances["status"] = new Chart(
+          document.getElementById("chart-status"),
+          {
+            type: "doughnut",
+            data: {
+              labels: statusKeys,
+              datasets: [
+                {
+                  data: statusKeys.map((k) => byStatus[k].length),
+                  backgroundColor: ["#198754", "#0d6efd", "#ffc107", "#6c757d"],
+                },
+              ],
+            },
+            options: { plugins: { legend: { position: "bottom" } } },
+          },
+        );
+      }
+
+      // ─────────────────────────────────────────────────────────────────
+      // BY ORGANIZATION
+      // ─────────────────────────────────────────────────────────────────
+      function renderOrgReport() {
+        const selectedOrg = document.getElementById("org-select").value;
+        const statusFilter = document.getElementById("org-status-filter").value;
+
+        let rows = DATA;
+        if (selectedOrg) rows = rows.filter((d) => d.mainOrg === selectedOrg);
+        if (statusFilter)
+          rows = rows.filter((d) => d.fundingStatus === statusFilter);
+
+        if (!rows.length) {
+          document.getElementById("org-report").innerHTML =
+            `<p class="text-muted">No data for the selected filters.</p>`;
+          return;
+        }
+
+        let html = "";
+
+        if (selectedOrg) {
+          // Single org – break down by sub-unit
+          const byUnit = groupBy(rows, "subUnit");
+          html += `<div class="section-header">
+      <h5 class="mb-0">${escHtml(selectedOrg)}</h5>
+      <small>${rows.length} initiatives &nbsp;|&nbsp; ${fmt$(totalCost(rows))}</small>
+    </div>`;
+          html += costByTopicBreakdown(rows);
+
+          Object.entries(byUnit).forEach(([unit, unitRows]) => {
+            html += `<div class="card shadow-sm mb-3">
+        <div class="card-header fw-semibold">
+          ${escHtml(unit || "No Unit Specified")}
+          <span class="text-muted ms-2 small">${unitRows.length} initiatives &nbsp;·&nbsp; ${fmt$(totalCost(unitRows))}</span>
+        </div>
+        <div class="card-body p-2">
+          ${initiativeTable(unitRows)}
+        </div>
+      </div>`;
+          });
+        } else {
+          // All orgs summary
+          const byOrg = groupBy(rows, "mainOrg");
+          Object.entries(byOrg).forEach(([org, orgRows]) => {
+            html += `<div class="card shadow-sm mb-3">
+        <div class="card-header fw-bold bg-dark text-white d-flex justify-content-between">
+          <span>${escHtml(org)}</span>
+          <span>${orgRows.length} initiatives &nbsp;·&nbsp; ${fmt$(totalCost(orgRows))}</span>
+        </div>
+        <div class="card-body p-2">
+          ${costByTopicBreakdown(orgRows)}
+          ${initiativeTable(orgRows)}
+        </div>
+      </div>`;
+          });
+        }
+
+        document.getElementById("org-report").innerHTML = html;
+      }
+
+      // ─────────────────────────────────────────────────────────────────
+      // BY STRATEGIC TOPIC
+      // ─────────────────────────────────────────────────────────────────
+      function renderTopicReport() {
+        const sel = document.getElementById("topic-select").value;
+        const topics = sel ? [sel] : ["A", "B", "C", "D"];
+        const byTopic = groupBy(DATA, "topicKey");
+
+        let html = "";
+        topics.forEach((key) => {
+          const rows = byTopic[key] || [];
+          if (!rows.length) return;
+          html += `<div class="card shadow-sm mb-3">
+      <div class="card-header fw-bold d-flex justify-content-between"
+           style="background:${TOPIC_COLORS[key]};color:#fff">
+        <span>${topicBadge(key)} ${escHtml(TOPIC_LABELS[key])}</span>
+        <span>${rows.length} initiatives &nbsp;·&nbsp; ${fmt$(totalCost(rows))}</span>
+      </div>
+      <div class="card-body p-2">
+        ${initiativeTable(rows, true)}
+      </div>
+    </div>`;
+        });
+
+        document.getElementById("topic-report").innerHTML =
+          html || `<p class="text-muted">No data.</p>`;
+      }
+
+      // ─────────────────────────────────────────────────────────────────
+      // BY GOAL
+      // ─────────────────────────────────────────────────────────────────
+      function renderGoalReport() {
+        const topics = ["A", "B", "C", "D"];
+        const byTopic = groupBy(DATA, "topicKey");
+
+        let html = "";
+        topics.forEach((key) => {
+          const topicRows = byTopic[key] || [];
+          if (!topicRows.length) return;
+
+          const byGoal = groupBy(topicRows, "goal");
+          html += `<div class="mb-4">
+      <div class="section-header">
+        ${topicBadge(key)} ${escHtml(TOPIC_LABELS[key])}
+        <span class="ms-2 small">${fmt$(totalCost(topicRows))}</span>
+      </div>`;
+
+          Object.entries(byGoal).forEach(([goal, goalRows]) => {
+            html += `<div class="card shadow-sm mb-2">
+        <div class="card-header fw-semibold bg-light d-flex justify-content-between">
+          <span><small>${escHtml(goal || "No Goal Specified")}</small></span>
+          <span class="text-muted small">${goalRows.length} init. · ${fmt$(totalCost(goalRows))}</span>
+        </div>
+        <div class="card-body p-2">
+          ${initiativeTable(goalRows, true)}
+        </div>
+      </div>`;
+          });
+          html += `</div>`;
+        });
+
+        document.getElementById("goal-report").innerHTML =
+          html || `<p class="text-muted">No data.</p>`;
+      }
+
+      // ─────────────────────────────────────────────────────────────────
+      // BY OBJECTIVE
+      // ─────────────────────────────────────────────────────────────────
+      function renderObjectiveReport() {
+        // Build index: objective → rows
+        const objMap = {};
+        DATA.forEach((row) => {
+          if (!row.objectives.length) {
+            (objMap["No Objective"] = objMap["No Objective"] || []).push(row);
+          } else {
+            row.objectives.forEach((obj) => {
+              (objMap[obj] = objMap[obj] || []).push(row);
+            });
+          }
+        });
+
+        let html = `<div class="table-responsive mb-3">
+  <table class="table table-sm table-hover table-bordered">
+    <thead class="table-dark">
+      <tr><th>Objective</th><th>Initiatives</th><th class="text-end">Total Cost</th></tr>
+    </thead>
+    <tbody>
+      ${Object.entries(objMap)
+        .map(
+          ([obj, rows]) => `
+      <tr>
+        <td><small>${escHtml(obj)}</small></td>
+        <td>${rows.length}</td>
+        <td class="text-end">${fmt$(totalCost(rows))}</td>
+      </tr>`,
+        )
+        .join("")}
+    </tbody>
+  </table>
+  </div>`;
+
+        Object.entries(objMap).forEach(([obj, rows]) => {
+          html += `<div class="card shadow-sm mb-3">
+      <div class="card-header fw-semibold bg-light">
+        <small>${escHtml(obj)}</small>
+        <span class="text-muted ms-2 small">${rows.length} init. · ${fmt$(totalCost(rows))}</span>
+      </div>
+      <div class="card-body p-2">
+        ${initiativeTable(rows, true)}
+      </div>
+    </div>`;
+        });
+
+        document.getElementById("objective-report").innerHTML = html;
+      }
+
+      // ─────────────────────────────────────────────────────────────────
+      // ALL INITIATIVES TABLE
+      // ─────────────────────────────────────────────────────────────────
+      function renderAllTable() {
+        const search = document
+          .getElementById("search-all")
+          .value.toLowerCase();
+        const topicF = document.getElementById("filter-topic-all").value;
+        const statusF = document.getElementById("filter-status-all").value;
+
+        let rows = DATA;
+        if (search)
+          rows = rows.filter(
+            (d) =>
+              d.projectName.toLowerCase().includes(search) ||
+              d.personResponsible.toLowerCase().includes(search) ||
+              d.staffName.toLowerCase().includes(search),
+          );
+        if (topicF) rows = rows.filter((d) => d.topicKey === topicF);
+        if (statusF) rows = rows.filter((d) => d.fundingStatus === statusF);
+
+        document.getElementById("all-table").innerHTML =
+          `<p class="text-muted small">${rows.length} result(s) · ${fmt$(totalCost(rows))}</p>` +
+          initiativeTable(rows, true);
+      }
+
+      // ─────────────────────────────────────────────────────────────────
+      // PRINT
+      // ─────────────────────────────────────────────────────────────────
+      function printReport() {
+        window.print();
+      }
+    </script>
+  </body>
+</html>
